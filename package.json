@@ -1,0 +1,15 @@
+{
+  "name": "forest-fire-ml-fullstack",
+  "version": "1.0.0",
+  "description": "Full-stack ML app with React frontend and Express backend",
+  "scripts": {
+    "backend": "npm --prefix backend start",
+    "frontend": "npm --prefix frontend run dev",
+    "start": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan,green\" \"npm run backend\" \"npm run frontend\"",
+    "dev": "npm start",
+    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

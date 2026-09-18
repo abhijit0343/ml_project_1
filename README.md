@@ -55,39 +55,23 @@ node >= 18.x
 npm >= 9.x
 ```
 
-### 1. Run the Jupyter Notebooks
+### 1. Run the Jupyter Notebooks (Optional)
 ```bash
 # From project root
 jupyter notebook
 ```
-Open **`4.0-Multiple Linear Regression.ipynb`** and run all cells. This:
-1. Loads the forest fire dataset
-2. Performs EDA with scatter plots and correlation heatmaps
-3. Preprocesses the data (StandardScaler + train-test split)
-4. Trains a `LinearRegression` model
-5. Evaluates performance (R², RMSE, MAE, MSE)
-6. Saves the trained model as **`models/regressor.pkl`**
+Open **`4.0-Multiple Linear Regression.ipynb`** and run all cells to train and save **`models/regressor.pkl`**.
 
-### 2. Extract Weights to JSON (Optional / Already Done)
+### 2. Run Both Backend & Frontend with One Command 🚀
+From the project root directory, simply run:
 ```bash
-python extract_model.py
+npm start
 ```
-This reads `models/regressor.pkl` and writes `backend/model.json` with the exact intercept and coefficient values.
+This concurrently starts:
+- 🔵 **Express API Backend** at `http://localhost:5000`
+- 🟢 **React Frontend (Vite)** at `http://localhost:5173`
 
-### 3. Start the Express Backend
-```bash
-cd backend
-npm install     # first time only
-npm start       # runs at http://localhost:5000
-```
-
-### 4. Start the React Frontend
-```bash
-cd frontend
-npm install     # first time only
-npm run dev     # runs at http://localhost:5173
-```
-Open **[http://localhost:5173](http://localhost:5173)** in your browser to test live predictions!
+*(To install all dependencies across root, backend, and frontend at once: `npm run install:all`)*
 
 ---
 
