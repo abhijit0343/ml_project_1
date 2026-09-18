@@ -10,9 +10,14 @@ An end-to-end machine learning project that **predicts how many hectares a fores
 ml_practice_1/
 │
 ├── models/                         # Saved ML model artifacts
-│   └── regressor.pkl               # Trained LinearRegression model (serialized)
+│   └── regressor.pkl               # Trained LinearRegression model (serialized pickle)
 │
-├── frontend/                       # React + Vite web application
+├── backend/                        # Node.js + Express REST API
+│   ├── model.json                  # Extracted model weights (intercept, coefs, feature names)
+│   ├── server.js                   # Express server exposing POST /predict & GET /
+│   └── package.json                # Express dependencies (express, cors)
+│
+├── frontend/                       # React + Vite web application (White Glassmorphism)
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── Navbar.jsx          # Sticky glassmorphism navigation bar
@@ -20,22 +25,23 @@ ml_practice_1/
 │   │   │   ├── StatsBar.jsx        # Key model statistics at a glance
 │   │   │   ├── About.jsx           # Project overview cards
 │   │   │   ├── Pipeline.jsx        # ML lifecycle visual pipeline
-│   │   │   ├── Predictor.jsx       # Interactive prediction form + result panel
+│   │   │   ├── Predictor.jsx       # Interactive prediction form + Express API integration
 │   │   │   ├── FeatureImportance.jsx # Horizontal bar chart of feature influence
 │   │   │   ├── Metrics.jsx         # R², RMSE, MAE, MSE metric cards
 │   │   │   └── Footer.jsx          # Footer
-│   │   ├── App.jsx                 # Root component (composes all sections)
+│   │   ├── App.jsx                 # Root component
 │   │   ├── main.jsx                # React 18 entry point
 │   │   └── index.css               # Full white glassmorphism design system
 │   ├── index.html
 │   ├── vite.config.js
 │   └── package.json
 │
+├── extract_model.py                # Helper script to export regressor.pkl to backend/model.json
 ├── 3.0-Simple Linear Regression.ipynb    # Simple regression notebook
 ├── 4.0-Multiple Linear Regression.ipynb # Multiple regression notebook (main model)
 ├── height-weight.csv               # Dataset for simple regression
 ├── forestfire-main.zip             # Forest fire dataset
-└── README.md                       # This file
+└── README.md                       # Complete documentation
 ```
 
 ---
@@ -62,28 +68,26 @@ Open **`4.0-Multiple Linear Regression.ipynb`** and run all cells. This:
 5. Evaluates performance (R², RMSE, MAE, MSE)
 6. Saves the trained model as **`models/regressor.pkl`**
 
-### 2. Load the Pickle Model (Python)
-```python
-import pickle
+### 2. Extract Weights to JSON (Optional / Already Done)
+```bash
+python extract_model.py
+```
+This reads `models/regressor.pkl` and writes `backend/model.json` with the exact intercept and coefficient values.
 
-# Load the saved trained model
-with open('models/regressor.pkl', 'rb') as f:
-    model = pickle.load(f)
-
-# Predict on new data
-# Input order: [temp, RH, wind, rain, FFMC, DMC, DC, ISI]
-new_data = [[18.5, 42, 4.5, 0.0, 90.2, 110, 530, 9.0]]
-prediction = model.predict(new_data)
-print(f"Estimated burned area: {prediction[0]:.2f} hectares")
+### 3. Start the Express Backend
+```bash
+cd backend
+npm install     # first time only
+npm start       # runs at http://localhost:5000
 ```
 
-### 3. Run the React Frontend
+### 4. Start the React Frontend
 ```bash
 cd frontend
-npm install     # only needed first time
-npm run dev
+npm install     # first time only
+npm run dev     # runs at http://localhost:5173
 ```
-Open **[http://localhost:5173](http://localhost:5173)** in your browser.
+Open **[http://localhost:5173](http://localhost:5173)** in your browser to test live predictions!
 
 ---
 
@@ -166,38 +170,31 @@ The UI uses a **White Glassmorphism** design:
 | `FeatureImportance.jsx` | Animated horizontal bar chart of feature influence |
 | `Metrics.jsx` | Glass cards showing R², RMSE, MAE, MSE |
 
-### Connecting to the Real Model
-The frontend currently uses **approximate coefficients** for demonstration. To connect it to the real `models/regressor.pkl`:
+### 🔌 Express Backend Integration
+The frontend connects directly to the Express REST API (`http://localhost:5000/predict`):
 
-1. Create a Python backend (e.g., Flask):
-```python
-from flask import Flask, request, jsonify
-import pickle, numpy as np
-
-app = Flask(__name__)
-with open('../models/regressor.pkl', 'rb') as f:
-    model = pickle.load(f)
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    data = request.json['features']
-    pred = model.predict([data])
-    area = max(0, np.exp(pred[0]) - 1)
-    return jsonify({'area': round(float(area), 2)})
-
-app.run(port=5000)
+```
+[React Form (Predictor.jsx)]
+          │
+          │  POST http://localhost:5000/predict
+          │  body: { features: [18.5, 42, 4.5, 0.0, 90.2, 110, 530, 9.0] }
+          ▼
+[Express Server (server.js)]
+          │
+          ├── Reads weights from model.json (extracted from regressor.pkl)
+          ├── Computes: log(area + 1) = intercept + Σ(coef[i] * feature[i])
+          ├── Inverts log: area = exp(logArea) - 1
+          └── Clamps to >= 0
+          │
+          ▼  res.json({ area: 14.73, unit: "hectares" })
+[React Form (Predictor.jsx)]
+          │
+          └── Displays predicted area, severity bar, and risk badge
 ```
 
-2. In `Predictor.jsx`, replace the mock `predictArea()` call with:
-```js
-const res = await fetch('http://localhost:5000/predict', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ features: Object.values(values).map(Number) })
-})
-const data = await res.json()
-setResult(data.area)
-```
+#### API Endpoints:
+- `GET  /` — Health check, returns loaded model details and feature list
+- `POST /predict` — Main prediction endpoint. Expects `{ "features": [temp, RH, wind, rain, FFMC, DMC, DC, ISI] }` and returns `{ "area": float, "unit": "hectares" }`
 
 ---
 

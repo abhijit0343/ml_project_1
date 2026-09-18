@@ -1,33 +1,9 @@
 import React, { useState } from 'react'
 
-/**
- * Mock regression coefficients approximated from the forest fire dataset.
- * In production, these would come from a Python backend loading regressor.pkl.
- *
- * Target: log(area + 1)  — we reverse with Math.exp(x) - 1
- * Features: temp, RH, wind, rain, FFMC, DMC, DC, ISI, X, Y, month_encoded, day_encoded
- */
-const INTERCEPT = -1.84
-const COEFS = {
-  temp:  0.042,
-  RH:   -0.008,
-  wind:  0.051,
-  rain: -0.210,
-  FFMC:  0.018,
-  DMC:   0.002,
-  DC:    0.001,
-  ISI:   0.028,
-}
-const MAX_AREA = 1090 // max in dataset for normalization
+// Express backend URL
+const API_URL = "http://localhost:5000/predict";
+const MAX_AREA = 1090.84; // Max burned area observed in dataset
 
-function predictArea(inputs) {
-  let logArea = INTERCEPT
-  Object.keys(COEFS).forEach((k) => {
-    logArea += COEFS[k] * parseFloat(inputs[k] || 0)
-  })
-  const area = Math.max(0, Math.exp(logArea) - 1)
-  return parseFloat(area.toFixed(2))
-}
 
 const fields = [
   { key: 'temp',  label: 'Temperature', unit: '°C',   min: 0,   max: 50,  step: 0.1, placeholder: '18.5', tip: 'Outside temperature' },
@@ -67,11 +43,37 @@ export default function Predictor() {
   const handlePredict = async () => {
     if (!allFilled) return
     setLoading(true)
-    // Simulate API latency
-    await new Promise((r) => setTimeout(r, 900))
-    const area = predictArea(values)
-    setResult(area)
-    setLoading(false)
+    try {
+      // Send the 8 features to Express in the order the model expects
+      const features = [
+        parseFloat(values.temp),
+        parseFloat(values.RH),
+        parseFloat(values.wind),
+        parseFloat(values.rain),
+        parseFloat(values.FFMC),
+        parseFloat(values.DMC),
+        parseFloat(values.DC),
+        parseFloat(values.ISI),
+      ]
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ features }),
+      })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Server error')
+      }
+
+      const data = await response.json()  // { area: 14.73, unit: 'hectares' }
+      setResult(data.area)
+    } catch (err) {
+      alert(`Prediction failed: ${err.message}\n\nMake sure the Express server is running:\n  cd backend && node server.js`)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const risk = result !== null ? getRiskLabel(result) : null
@@ -164,8 +166,7 @@ export default function Predictor() {
                 </div>
 
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                  ⚠️ This is a <strong>simulated prediction</strong> using approximate coefficients.
-                  For production use, connect to the Python backend that loads <code>models/regressor.pkl</code>.
+                  ⚡ Live predictions powered by the <strong>Express backend</strong> (<code>http://localhost:5000</code>) using real regression coefficients extracted from <code>regressor.pkl</code>.
                 </div>
               </div>
             )}
